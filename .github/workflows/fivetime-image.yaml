@@ -1,0 +1,99 @@
+# Fork-only workflow: build the router image from any ref of this fork and
+# push it to ghcr.io/fivetime. Not meant to be proposed upstream.
+name: Fivetime image
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag or commit to build
+        required: true
+        default: main
+      tag:
+        description: Extra image tag, in addition to <ref>-<commit>
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: fivetime-image-${{ inputs.ref }}
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/fivetime/openperouter/router
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Compute tags
+        id: meta
+        env:
+          REF: ${{ inputs.ref }}
+          EXTRA_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          commit=$(git rev-parse HEAD)
+          ref_slug=$(printf '%s' "$REF" | tr -c 'A-Za-z0-9_.-' '-' | cut -c1-100)
+          tags="${IMAGE}:${ref_slug}-${commit:0:12}"
+          if [ -n "$EXTRA_TAG" ]; then
+            if ! printf '%s' "$EXTRA_TAG" | grep -Eq '^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$'; then
+              echo "::error::invalid image tag: $EXTRA_TAG"
+              exit 1
+            fi
+            tags="${tags},${IMAGE}:${EXTRA_TAG}"
+          fi
+          {
+            echo "commit=${commit}"
+            echo "tags=${tags}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Set up docker buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log into GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile
+          # Every node of the target cluster is amd64.
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ steps.meta.outputs.commit }}
+          build-args: |
+            GIT_BRANCH=${{ inputs.ref }}
+            GIT_COMMIT=${{ steps.meta.outputs.commit }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Summary
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+          COMMIT: ${{ steps.meta.outputs.commit }}
+        run: |
+          {
+            echo "### Image"
+            echo "- commit: \`${COMMIT}\`"
+            echo "- digest: \`${DIGEST}\`"
+            for t in ${TAGS//,/ }; do echo "- \`${t}\`"; done
+          } >> "$GITHUB_STEP_SUMMARY"
