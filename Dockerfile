@@ -1,16 +1,20 @@
 ARG FRR_IMAGE=quay.io/frrouting/frr:10.6.0
-ARG CNI_PLUGINS_VERSION=012159164d7f552ee7a8ee840447c61611958e87
+# fivetime/plugins branch vlan-optional-ipam: upstream main plus "vlan: make
+# IPAM optional for L2-only interfaces", pending in containernetworking/plugins.
+ARG CNI_PLUGINS_REPO=https://github.com/fivetime/plugins.git
+ARG CNI_PLUGINS_VERSION=713aab02dbae29e2b181d66c4666cdf8f2cd89db
 
 # Build CNI plugin binaries
 FROM golang:1.26.4 AS cni-plugins-builder
 
+ARG CNI_PLUGINS_REPO
 ARG CNI_PLUGINS_VERSION
 ARG TARGETOS
 ARG TARGETARCH
 
 WORKDIR /cni-plugins
 RUN git init && \
-    git remote add origin https://github.com/containernetworking/plugins.git && \
+    git remote add origin ${CNI_PLUGINS_REPO} && \
     git fetch --depth 1 origin ${CNI_PLUGINS_VERSION} && \
     git checkout FETCH_HEAD
 RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} ./build_linux.sh \
@@ -67,6 +71,8 @@ COPY --from=cni-plugins-builder /cni-plugins/bin/macvlan /opt/openperouter/cni/b
 COPY --from=cni-plugins-builder /cni-plugins/bin/ipvlan /opt/openperouter/cni/bin/
 COPY --from=cni-plugins-builder /cni-plugins/bin/static /opt/openperouter/cni/bin/
 COPY --from=cni-plugins-builder /cni-plugins/bin/dhcp /opt/openperouter/cni/bin/
+COPY --from=cni-plugins-builder /cni-plugins/bin/vlan /opt/openperouter/cni/bin/
+COPY --from=cni-plugins-builder /cni-plugins/bin/tuning /opt/openperouter/cni/bin/
 # Copy FRR startup configuration to the default location
 COPY systemdmode/frrconfig/daemons /etc/frr/daemons
 COPY systemdmode/frrconfig/vtysh.conf /etc/frr/vtysh.conf
