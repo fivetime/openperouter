@@ -1,8 +1,8 @@
 ARG FRR_IMAGE=quay.io/frrouting/frr:10.6.0
-# fivetime/plugins branch vlan-optional-ipam: upstream main plus "vlan: make
+# fivetime/container-networking-plugins branch vlan-optional-ipam: upstream main plus "vlan: make
 # IPAM optional for L2-only interfaces", pending in containernetworking/plugins.
-ARG CNI_PLUGINS_REPO=https://github.com/fivetime/plugins.git
-ARG CNI_PLUGINS_VERSION=713aab02dbae29e2b181d66c4666cdf8f2cd89db
+ARG CNI_PLUGINS_REPO=https://github.com/fivetime/container-networking-plugins.git
+ARG CNI_PLUGINS_VERSION=6e885331a1d724de43162818fbdda246e40923df
 
 # Build CNI plugin binaries
 FROM golang:1.26.4 AS cni-plugins-builder
