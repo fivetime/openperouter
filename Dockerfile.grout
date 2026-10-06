@@ -1,7 +1,7 @@
 ARG CNI_PLUGINS_VERSION=012159164d7f552ee7a8ee840447c61611958e87
 
 # Build CNI plugin binaries
-FROM golang:1.26.4 AS cni-plugins-builder
+FROM golang:1.26.8 AS cni-plugins-builder
 
 ARG CNI_PLUGINS_VERSION
 ARG TARGETOS
@@ -16,7 +16,7 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} ./build_linux.sh 
   -ldflags "-extldflags -static"
 
 # Build the manager binary
-FROM golang:1.26.4 AS builder
+FROM golang:1.26.8 AS builder
 
 ARG GIT_COMMIT=dev
 ARG GIT_BRANCH=dev

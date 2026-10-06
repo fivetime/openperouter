@@ -5,7 +5,7 @@ ARG CNI_PLUGINS_REPO=https://github.com/fivetime/container-networking-plugins.gi
 ARG CNI_PLUGINS_VERSION=6e885331a1d724de43162818fbdda246e40923df
 
 # Build CNI plugin binaries
-FROM golang:1.26.4 AS cni-plugins-builder
+FROM golang:1.26.8 AS cni-plugins-builder
 
 ARG CNI_PLUGINS_REPO
 ARG CNI_PLUGINS_VERSION
@@ -21,7 +21,7 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} ./build_linux.sh 
   -ldflags "-extldflags -static"
 
 # Build the manager binary
-FROM golang:1.26.4 AS builder
+FROM golang:1.26.8 AS builder
 
 ARG GIT_COMMIT=dev
 ARG GIT_BRANCH=dev
